@@ -7,10 +7,18 @@ const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+// Shared session store (must be before module.exports)
+const demoSessions = new Map();
+
+let supabase;
+try {
+  supabase = createClient(
+    process.env.SUPABASE_URL || 'http://localhost',
+    process.env.SUPABASE_KEY || 'dummy'
+  );
+} catch (err) {
+  console.log('Supabase not configured');
+}
 
 // Google Places API search
 async function searchGooglePlaces(query) {
@@ -19,18 +27,21 @@ async function searchGooglePlaces(query) {
   // First, find place
   const findUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(query)}&inputtype=textquery&fields=place_id,name,formatted_address,formatted_phone_number,website,rating,opening_hours&key=${apiKey}`;
   
-  const findResponse = await axios.get(findUrl);
-  const candidate = findResponse.data.candidates?.[0];
-  
-  if (!candidate) return null;
-  
-  // Get detailed info
-  const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${candidate.place_id}&fields=name,formatted_address,formatted_phone_number,website,opening_hours,reviews,types&key=${apiKey}`;
-  
-  const detailsResponse = await axios.get(detailsUrl);
-  return detailsResponse.data.result;
-  
-  return detailsResponse.data.result;
+  try {
+    const findResponse = await axios.get(findUrl);
+    const candidate = findResponse.data.candidates?.[0];
+    
+    if (!candidate) return null;
+    
+    // Get detailed info
+    const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${candidate.place_id}&fields=name,formatted_address,formatted_phone_number,website,opening_hours,reviews,types&key=${apiKey}`;
+    
+    const detailsResponse = await axios.get(detailsUrl);
+    return detailsResponse.data.result;
+  } catch (err) {
+    console.log('Google Places API error:', err.message);
+    return null;
+  }
 }
 
 // Website scraper
@@ -125,7 +136,7 @@ function getDefaultServices(niche) {
     dental: ['Cleanings', 'Fillings', 'Crowns', 'Teeth whitening', 'Emergency dental'],
     hvac: ['AC repair', 'Heating install', 'Maintenance', 'Duct cleaning', 'Emergency service'],
     legal: ['Consultations', 'Contract review', 'Litigation', 'Estate planning', 'Business law'],
-    real estate: ['Buyer representation', 'Seller listing', 'Market analysis', 'Property management']
+    real_estate: ['Buyer representation', 'Seller listing', 'Market analysis', 'Property management']
   };
   return defaults[niche.toLowerCase()] || ['Service 1', 'Service 2', 'Service 3'];
 }
@@ -168,7 +179,7 @@ function getQualificationQuestions(niche) {
       "Is this urgent or can we schedule a consultation?",
       "Have you worked with an attorney before?"
     ],
-    'real estate': [
+    real_estate: [
       "Are you looking to buy, sell, or rent?",
       "What's your timeline?",
       "What's your budget range?"
@@ -187,13 +198,13 @@ function getVoicePersona(niche) {
     dental: 'gentle, reassuring, professional, caring',
     hvac: 'knowledgeable, helpful, reliable, straightforward',
     legal: 'professional, confident, empathetic, authoritative',
-    'real estate': 'enthusiastic, knowledgeable, personable, sharp'
+    real_estate: 'enthusiastic, knowledgeable, personable, sharp'
   };
   return personas[niche.toLowerCase()] || 'warm, professional, helpful';
 }
 
-// Main handler
-module.exports = async (req, res) => {
+// Export handler
+const handler = async (req, res) => {
   try {
     const { url, niche } = req.body;
     
@@ -234,21 +245,17 @@ module.exports = async (req, res) => {
     // Create demo session
     const sessionId = `demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    const { data: session, error } = await supabase
-      .from('demo_sessions')
-      .insert({
-        session_id: sessionId,
-        business_name: config.business_name,
-        niche: config.niche,
-        config: config,
-        message_count: 0,
-        status: 'active',
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
-    
-    if (error) throw error;
+    // Store in memory
+    const session = {
+      session_id: sessionId,
+      business_name: config.business_name,
+      niche: config.niche,
+      config: config,
+      message_count: 0,
+      status: 'active',
+      created_at: new Date().toISOString()
+    };
+    demoSessions.set(sessionId, session);
     
     // Return session info
     res.json({
@@ -266,3 +273,7 @@ module.exports = async (req, res) => {
     res.status(500).json({ error: 'Failed to start demo', details: err.message });
   }
 };
+
+// Export session store for other modules
+handler.demoSessions = demoSessions;
+module.exports = handler;

@@ -5,10 +5,19 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+// Import shared session store
+const demoStart = require('./demo-start');
+const demoSessions = demoStart.demoSessions;
+
+let supabase;
+try {
+  supabase = createClient(
+    process.env.SUPABASE_URL || 'http://localhost',
+    process.env.SUPABASE_KEY || 'dummy'
+  );
+} catch (err) {
+  console.log('Supabase not configured, using in-memory storage');
+}
 
 // OpenAI/Moonshot API call
 async function getAIResponse(config, message, history, messageNumber) {
@@ -25,22 +34,52 @@ async function getAIResponse(config, message, history, messageNumber) {
     { role: 'user', content: message }
   ];
   
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'gpt-4-turbo-preview', // or moonshot model
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 500
-    })
-  });
+  // Check if API key is configured
+  if (!apiKey || apiKey === 'undefined') {
+    console.log('No AI API key configured, returning demo response');
+    return generateDemoResponse(config, message, messageNumber);
+  }
   
-  const data = await response.json();
-  return data.choices[0].message.content;
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4-turbo-preview', // or moonshot model
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 500
+      })
+    });
+    
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (err) {
+    console.error('AI API error:', err.message);
+    return generateDemoResponse(config, message, messageNumber);
+  }
+}
+
+// Generate demo response when AI API not available
+function generateDemoResponse(config, message, messageNumber) {
+  const responses = [
+    "I'd be happy to help with that! What's the plumbing issue you're dealing with?",
+    "Got it — where are you located?",
+    "Thanks! How urgent is this — emergency or can it wait a day or two?",
+    "Perfect — what's the best name and number for you?",
+    "Got it. I can get you on the schedule as early as tomorrow. Morning or afternoon?",
+    "You're set. You'll get a confirmation text shortly.",
+    "Is there anything else I can help you with today?",
+    "That's exactly what I'd do for every caller — nights, weekends, holidays, all of it. Hiring me takes about 5 minutes, and I start immediately. Want to make it official?"
+  ];
+  
+  if (messageNumber <= responses.length) {
+    return responses[messageNumber - 1];
+  }
+  return "That's the end of my audition — tap 'Hire Me' and I'm on the clock today.";
 }
 
 function buildSystemPrompt(config, messageNumber) {
@@ -95,14 +134,26 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Session ID and message required' });
     }
     
-    // Get session
-    const { data: session, error: sessionError } = await supabase
-      .from('demo_sessions')
-      .select('*')
-      .eq('session_id', sessionId)
-      .single();
+    // Get session (try Supabase first, fallback to memory)
+    let session;
+    try {
+      const { data, error } = await supabase
+        .from('demo_sessions')
+        .select('*')
+        .eq('session_id', sessionId)
+        .single();
+      
+      if (!error && data) session = data;
+    } catch (err) {
+      // Supabase not available
+    }
     
-    if (sessionError || !session) {
+    // Fallback to shared memory store
+    if (!session) {
+      session = demoSessions.get(sessionId);
+    }
+    
+    if (!session) {
       return res.status(404).json({ error: 'Session not found' });
     }
     
@@ -124,38 +175,27 @@ module.exports = async (req, res) => {
     );
     
     // Update message count
-    const newCount = session.message_count + 1;
+    const newCount = (session.message_count || 0) + 1;
     const isCapHit = newCount >= session.config.message_cap;
     
-    await supabase
-      .from('demo_sessions')
-      .update({ 
-        message_count: newCount,
-        status: isCapHit ? 'cap_hit' : 'active',
-        last_message_at: new Date().toISOString()
-      })
-      .eq('session_id', sessionId);
+    // Update in shared memory store
+    session.message_count = newCount;
+    session.status = isCapHit ? 'cap_hit' : 'active';
+    demoSessions.set(sessionId, session);
     
-    // Log message
-    await supabase
-      .from('demo_messages')
-      .insert({
-        session_id: sessionId,
-        role: 'user',
-        content: message,
-        channel: channel,
-        created_at: new Date().toISOString()
-      });
-    
-    await supabase
-      .from('demo_messages')
-      .insert({
-        session_id: sessionId,
-        role: 'assistant',
-        content: reply,
-        channel: channel,
-        created_at: new Date().toISOString()
-      });
+    // Try Supabase (ignore errors)
+    try {
+      await supabase
+        .from('demo_sessions')
+        .update({ 
+          message_count: newCount,
+          status: isCapHit ? 'cap_hit' : 'active',
+          last_message_at: new Date().toISOString()
+        })
+        .eq('session_id', sessionId);
+    } catch (err) {
+      // Supabase not available
+    }
     
     // Check if close should trigger
     const closeTriggered = newCount >= session.config.message_cap - 3 || 

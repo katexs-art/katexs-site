@@ -1,0 +1,76 @@
+{
+  "name": "Katexs Prompt Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-prompts",
+        "responseMode": "responseNode"
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "webhookId": "generate-prompts"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json.body || $json;\n\nconst config = {\n  business_name: input.business_name || input.name || 'Your Business',\n  niche: input.niche || 'general',\n  services: input.services || [],\n  service_area: input.service_area || input.formatted_address || 'Local area',\n  hours: input.hours || 'Mon-Fri 9am-5pm',\n  phones: input.phones || [input.formatted_phone_number].filter(Boolean),\n  faq_pairs: input.faq_pairs || input.faqs || [],\n  greeting_line: input.greeting_line || `Thanks for calling ${input.business_name || 'us'}, this is {{agent_name}} — how can I help you today?`,\n  q1: input.qualification_questions?.[0] || \"What can I help you with today?\",\n  q2: input.qualification_questions?.[1] || \"Where are you located?\",\n  q3: input.qualification_questions?.[2] || \"When do you need this done?\",\n  agent_name: input.agent_name || generateAgentName(input.business_name || 'Business'),\n  message_cap: 15,\n  voice_persona: getVoicePersona(input.niche)\n};\n\nfunction generateAgentName(businessName) {\n  const names = ['Ava', 'Mia', 'Zoe', 'Luna', 'Nova', 'Iris'];\n  const hash = businessName.split('').reduce((a, b) => a + b.charCodeAt(0), 0);\n  return names[hash % names.length];\n}\n\nfunction getVoicePersona(niche) {\n  const personas = {\n    plumbing: 'warm, direct, no-nonsense, small-business friendly',\n    dental: 'gentle, reassuring, professional, caring',\n    hvac: 'knowledgeable, helpful, reliable, straightforward',\n    legal: 'professional, confident, empathetic, authoritative',\n    real_estate: 'enthusiastic, knowledgeable, personable, sharp'\n  };\n  return personas[niche?.toLowerCase()] || 'warm, professional, helpful';\n}\n\nconst chatPrompt = `You are ${config.agent_name}, the AI receptionist for ${config.business_name}, a ${config.niche} business.\n\nYOUR KNOWLEDGE:\n- Business: ${config.business_name}\n- Services: ${config.services.join(', ')}\n- Service area: ${config.service_area}\n- Hours: ${config.hours}\n- Phone: ${config.phones[0] || 'Not on file'}\n- FAQs: ${config.faq_pairs.map(f => `Q: ${f.q} A: ${f.a}`).join('\\n')}\n\nBEHAVIOR:\n1. Open with: \"${config.greeting_line}\"\n2. Answer ONLY from your knowledge. Never invent services, prices, policies.\n3. Outside knowledge: \"Great question — that's for the owner. Want me to have someone reach out?\"\n4. No price info: \"Pricing depends on the job — I can have someone text you a quote today. What's the best number?\"\n5. Never break character. You are ${config.agent_name}, the receptionist.\n\nTHE MONEY MOTION:\nWhen visitor describes need, run qualification:\n- Ask: ${config.q1}\n- Then: ${config.q2}\n- Then: ${config.q3}\n- Capture: \"Perfect — what's the best name and number for you?\"\n- Booking: \"Got it. I can get you on the schedule as early as tomorrow. Morning or afternoon?\"\n- Confirm: \"You're set. You'll get a confirmation text shortly.\"\n\nDEMO MODE: PERFORM flow, no real booking.\n\nTHE CLOSE:\n- You have ${config.message_cap} messages\n- After full booking motion OR at message ${config.message_cap - 3}, deliver close ONCE:\n\"That's exactly what I'd do for every caller — nights, weekends, holidays, all of it. Hiring me takes about 5 minutes, and I start immediately. Want to make it official?\"\n- Final message: \"That's the end of my audition — tap 'Hire Me' and I'm on the clock today.\"\n\nTONE: Friendly, brief (1-3 sentences), zero corporate stiffness. Contractions always.`;\n\nconst voicePrompt = `You are ${config.agent_name}, the AI receptionist for ${config.business_name}, a ${config.niche} business. You are on a PHONE CALL.\n\nPERSONA: ${config.voice_persona}\n\nKNOWLEDGE:\n- Business: ${config.business_name}\n- Services: ${config.services.join(', ')}\n- Service area: ${config.service_area}\n- Hours: ${config.hours}\n- Phone: ${config.phones[0] || 'Not on file'}\n- FAQs: ${config.faq_pairs.map(f => `Q: ${f.q} A: ${f.a}`).join('\\n')}\n\nRULES:\n1. Answer ONLY from knowledge. Never invent.\n2. Sound NATURAL on phone — brief, warm, use filler words (\"um\", \"let me see\") sparingly.\n3. If don't know: \"You know what, let me get the owner on that for you.\"\n4. Always qualify: ${config.q1}, ${config.q2}, ${config.q3}\n5. Capture name/number before ending.\n6. Close: \"Listen — I handle every call like this. Nights, weekends, holidays. Want to put me on payroll?\"\n\nDEMO MODE: Show the moves, no real booking.`;\n\nreturn [{\n  json: {\n    deploy_id: input.deploy_id || input.id || `deploy_${Date.now()}`,\n    business_config: config,\n    chat_prompt: chatPrompt,\n    voice_prompt: voicePrompt\n  }\n}];"
+      },
+      "id": "generate-prompts",
+      "name": "Generate Prompts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 0]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "deploy_configs",
+        "data": {
+          "id": "={{ $json.deploy_id }}",
+          "business_name": "={{ $json.business_config.business_name }}",
+          "niche": "={{ $json.business_config.niche }}",
+          "config": "={{ JSON.stringify($json.business_config) }}",
+          "chat_prompt": "={{ $json.chat_prompt }}",
+          "voice_prompt": "={{ $json.voice_prompt }}",
+          "status": "ready"
+        }
+      },
+      "id": "save-supabase",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [448, 0],
+      "credentials": {
+        "supabaseApi": "your-supabase-credentials"
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, deploy_id: $json.deploy_id, message: 'Prompts generated and saved' }) }}"
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [672, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Generate Prompts", "type": "main", "index": 0}]]
+    },
+    "Generate Prompts": {
+      "main": [[{"node": "Save to Supabase", "type": "main", "index": 0}]]
+    },
+    "Save to Supabase": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
