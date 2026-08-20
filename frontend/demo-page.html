@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Try Your AI Receptionist — Katexs</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .demo-container {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 25px 80px rgba(0,0,0,0.15);
+      max-width: 1200px;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      overflow: hidden;
+    }
+    
+    .setup-panel {
+      padding: 60px;
+      background: #f8f9fa;
+    }
+    
+    .setup-panel h1 {
+      font-size: 36px;
+      margin-bottom: 12px;
+      color: #1a1a2e;
+    }
+    
+    .setup-panel .subtitle {
+      color: #666;
+      font-size: 18px;
+      margin-bottom: 40px;
+    }
+    
+    .input-group {
+      margin-bottom: 24px;
+    }
+    
+    .input-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .input-group input {
+      width: 100%;
+      padding: 14px 18px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      font-size: 16px;
+      transition: border-color 0.2s;
+    }
+    
+    .input-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .btn-primary {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    }
+    
+    .preview-panel {
+      padding: 60px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    
+    .preview-panel h2 {
+      font-size: 28px;
+      margin-bottom: 16px;
+      color: #1a1a2e;
+    }
+    
+    .preview-panel p {
+      color: #666;
+      margin-bottom: 40px;
+      max-width: 400px;
+    }
+    
+    .feature-list {
+      text-align: left;
+      list-style: none;
+      max-width: 400px;
+    }
+    
+    .feature-list li {
+      padding: 12px 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #555;
+    }
+    
+    .feature-list li::before {
+      content: "✓";
+      width: 28px;
+      height: 28px;
+      background: #e8f5e9;
+      color: #4caf50;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+    
+    .chat-preview {
+      width: 100%;
+      max-width: 400px;
+      height: 500px;
+      background: #f0f0f0;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+    }
+    
+    @media (max-width: 900px) {
+      .demo-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .setup-panel, .preview-panel {
+        padding: 40px;
+      }
+    }
+    
+    .loading-spinner {
+      display: none;
+      width: 24px;
+      height: 24px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-container">
+    <div class="setup-panel">
+      <h1>Meet Your AI Receptionist</h1>
+      <p class="subtitle">Enter your business details and see your AI agent come to life in seconds.</p>
+      
+      <form id="demo-form">
+        <div class="input-group">
+          <label for="business-url">Business Website or Name</label>
+          <input type="text" id="business-url" placeholder="https://yourbusiness.com or Business Name" required>
+        </div>
+        
+        <div class="input-group">
+          <label for="business-niche">Industry/Niche</label>
+          <input type="text" id="business-niche" placeholder="e.g., Plumbing, Dental, HVAC, Legal" required>
+        </div>
+        
+        <button type="submit" class="btn-primary">
+          <span id="btn-text">Build My AI Agent</span>
+          <div class="loading-spinner" id="loading"></div>
+        </button>
+      </form>
+      
+      <div style="margin-top: 30px; padding-top: 30px; border-top: 1px solid #e0e0e0;">
+        <p style="color: #999; font-size: 14px;">Powered by Katexs AI Workforce Platform</p>
+      </div>
+    </div>
+    
+    <div class="preview-panel">
+      <div id="preview-content">
+        <h2>What You'll Get</h2>
+        <p>A fully trained AI receptionist that knows your business, answers calls, books appointments, and never misses a lead.</p>
+        
+        <ul class="feature-list">
+          <li>Trained on your real business data</li>
+          <li>Voice + Chat ready</li>
+          <li>Books appointments automatically</li>
+          <li>Qualifies leads instantly</li>
+          <li>Works 24/7, no breaks</li>
+        </ul>
+      </div>
+      
+      <div id="chat-container" style="display: none; width: 100%;">
+        <!-- Chat widget will be injected here -->
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import KatexsChatWidget from './chat-widget.js';
+    
+    const form = document.getElementById('demo-form');
+    const btnText = document.getElementById('btn-text');
+    const loading = document.getElementById('loading');
+    const previewContent = document.getElementById('preview-content');
+    const chatContainer = document.getElementById('chat-container');
+    
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const url = document.getElementById('business-url').value;
+      const niche = document.getElementById('business-niche').value;
+      
+      // Show loading
+      btnText.style.display = 'none';
+      loading.style.display = 'block';
+      
+      try {
+        // Start demo session
+        const response = await fetch('/api/demo/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, niche })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Hide preview, show chat
+          previewContent.style.display = 'none';
+          chatContainer.style.display = 'block';
+          
+          // Initialize chat widget
+          window.KATEXS_CONFIG = {
+            apiUrl: window.location.origin,
+            sessionId: data.sessionId,
+            businessName: data.businessName,
+            agentName: data.agentName,
+            primaryColor: data.brandColors?.primary || '#667eea'
+          };
+          
+          const widget = new KatexsChatWidget(window.KATEXS_CONFIG);
+          
+          // Move widget to preview panel
+          const widgetEl = document.querySelector('.katexs-widget');
+          if (widgetEl) {
+            widgetEl.style.position = 'relative';
+            widgetEl.style.bottom = 'auto';
+            widgetEl.style.right = 'auto';
+            chatContainer.appendChild(widgetEl);
+            
+            // Auto-open chat
+            widget.toggleChat();
+          }
+        }
+      } catch (err) {
+        console.error('Demo start failed:', err);
+        alert('Something went wrong. Please try again.');
+      } finally {
+        btnText.style.display = 'block';
+        loading.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
