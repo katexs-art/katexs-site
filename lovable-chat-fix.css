@@ -1,0 +1,77 @@
+/* Katexs Chat Widget CSS Fixes */
+
+/* Remove white ring around messages */
+.chat-message {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Dark theme message bubbles */
+.chat-message.user {
+  background: #1a73e8 !important;
+  color: white !important;
+  border-radius: 18px 18px 4px 18px !important;
+  padding: 12px 16px !important;
+  margin: 4px 0 !important;
+  max-width: 80% !important;
+  align-self: flex-end !important;
+}
+
+.chat-message.agent {
+  background: #2d2d3a !important;
+  color: #e0e0e0 !important;
+  border-radius: 18px 18px 18px 4px !important;
+  padding: 12px 16px !important;
+  margin: 4px 0 !important;
+  max-width: 80% !important;
+  align-self: flex-start !important;
+}
+
+/* Links in chat */
+.chat-message a {
+  color: #4fc3f7 !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+}
+
+.chat-message a:hover {
+  color: #81d4fa !important;
+}
+
+/* Input field - remove white ring */
+.chat-input {
+  outline: none !important;
+  box-shadow: none !important;
+  border: 1px solid #444 !important;
+  background: #1a1a2e !important;
+  color: white !important;
+  border-radius: 24px !important;
+  padding: 12px 20px !important;
+}
+
+.chat-input:focus {
+  border-color: #1a73e8 !important;
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2) !important;
+}
+
+/* Chat container */
+.chat-container {
+  background: #0f0f1a !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+}
+
+/* Scrollbar styling */
+.chat-messages::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #444 !important;
+  border-radius: 3px !important;
+}
