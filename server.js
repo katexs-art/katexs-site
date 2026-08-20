@@ -19,6 +19,7 @@ app.use(express.static('frontend'));
 // API Routes
 app.post('/api/demo/start', require('./backend/api/demo-start'));
 app.post('/api/demo/message', require('./backend/api/demo-message'));
+app.get('/api/public/demo/config/:deployId', require('./backend/api/demo-config'));
 app.post('/api/checkout', require('./backend/api/checkout'));
 app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), require('./backend/api/stripe-webhook'));
 
